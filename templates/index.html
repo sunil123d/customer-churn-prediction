@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Customer Churn Predictor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f1117; color: #e2e8f0;
+    min-height: 100vh; padding: 2rem 1rem;
+    display: flex; justify-content: center;
+  }
+  .container { width: 100%; max-width: 820px; }
+  h1 { font-size: 1.8rem; color: #818cf8; margin-bottom: 0.3rem; }
+  .subtitle { color: #64748b; font-size: 0.9rem; margin-bottom: 2rem; }
+  .card {
+    background: #1a1d2e; border: 1px solid #2d3748;
+    border-radius: 12px; padding: 1.5rem; margin-bottom: 1.2rem;
+  }
+  .card h3 {
+    font-size: 0.8rem; text-transform: uppercase;
+    letter-spacing: .08em; color: #4f46e5; margin-bottom: 1.2rem;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+  .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+  label { font-size: 0.8rem; color: #94a3b8; }
+  input[type="number"], select {
+    background: #0f1117; border: 1px solid #2d3748;
+    border-radius: 8px; color: #e2e8f0;
+    padding: 0.55rem 0.9rem; font-size: 0.9rem;
+    outline: none; width: 100%;
+  }
+  input:focus, select:focus { border-color: #4f46e5; }
+  .btn {
+    width: 100%; padding: 0.9rem; background: #4f46e5;
+    color: white; border: none; border-radius: 10px;
+    font-size: 1rem; font-weight: 600; cursor: pointer;
+    margin-top: 0.5rem; transition: background .15s;
+  }
+  .btn:hover { background: #4338ca; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .result {
+    display: none; text-align: center;
+    padding: 2rem; border-radius: 12px;
+    border: 1px solid #2d3748; margin-top: 1.5rem;
+  }
+  .result.churn    { background: #1a0808; border-color: #ef4444; }
+  .result.no-churn { background: #081a08; border-color: #22c55e; }
+  .result-icon  { font-size: 3rem; margin-bottom: 0.5rem; }
+  .result-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .result-prob  { font-size: 1rem; color: #94a3b8; margin-bottom: 1.2rem; }
+  .meter-wrap   { margin: 1rem 0; }
+  .meter-label  {
+    display: flex; justify-content: space-between;
+    font-size: 0.75rem; color: #64748b; margin-bottom: 0.4rem;
+  }
+  .meter { height: 12px; background: #1e2235; border-radius: 999px; overflow: hidden; }
+  .meter-fill   { height: 100%; border-radius: 999px; transition: width 0.8s ease; }
+  .risk-badge   {
+    display: inline-block; padding: 8px 24px;
+    border-radius: 999px; font-size: 1rem; font-weight: 600;
+  }
+  .loader {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid #fff; border-top-color: transparent;
+    border-radius: 50%; animation: spin .6s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Customer Churn Predictor</h1>
+  <p class="subtitle">Random Forest model trained on Telco customer data</p>
+
+  <form id="form">
+
+    <div class="card">
+      <h3>Account Details</h3>
+      <div class="grid">
+        <div class="form-group">
+          <label>Tenure (months)</label>
+          <input type="number" name="tenure" value="12" min="0" max="72"/>
+        </div>
+        <div class="form-group">
+          <label>Monthly Charges ($)</label>
+          <input type="number" name="monthly_charges" value="65" step="0.01"/>
+        </div>
+        <div class="form-group">
+          <label>Churn Score (0-100)</label>
+          <input type="number" name="churn_score" value="50" min="0" max="100"/>
+        </div>
+        <div class="form-group">
+          <label>CLTV (Customer Lifetime Value)</label>
+          <input type="number" name="cltv" value="3000"/>
+        </div>
+        <div class="form-group">
+          <label>Contract Type</label>
+          <select name="contract">
+            <option>Month-to-month</option>
+            <option>One year</option>
+            <option>Two year</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Payment Method</label>
+          <select name="payment_method">
+            <option>Electronic check</option>
+            <option>Mailed check</option>
+            <option>Bank transfer (automatic)</option>
+            <option>Credit card (automatic)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Paperless Billing</label>
+          <select name="paperless_billing">
+            <option>Yes</option><option>No</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Zip Code</label>
+          <input type="number" name="zip_code" value="90001"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Customer Profile</h3>
+      <div class="grid">
+        <div class="form-group">
+          <label>Gender</label>
+          <select name="gender">
+            <option>Male</option><option>Female</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Senior Citizen</label>
+          <select name="senior_citizen">
+            <option>No</option><option>Yes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Partner</label>
+          <select name="partner">
+            <option>No</option><option>Yes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Dependents</label>
+          <select name="dependents">
+            <option>No</option><option>Yes</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Services</h3>
+      <div class="grid-3">
+        <div class="form-group">
+          <label>Phone Service</label>
+          <select name="phone_service">
+            <option>Yes</option><option>No</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Multiple Lines</label>
+          <select name="multiple_lines">
+            <option>No</option>
+            <option>Yes</option>
+            <option>No phone service</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Internet Service</label>
+          <select name="internet_service">
+            <option>DSL</option>
+            <option>Fiber optic</option>
+            <option>No</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Online Security</label>
+          <select name="online_security">
+            <option>No</option><option>Yes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Online Backup</label>
+          <select name="online_backup">
+            <option>No</option><option>Yes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Device Protection</label>
+          <select name="device_protection">
+            <option>No</option><option>Yes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tech Support</label>
+          <select name="tech_support">
+            <option>No</option><option>Yes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Streaming TV</label>
+          <select name="streaming_tv">
+            <option>No</option><option>Yes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Streaming Movies</label>
+          <select name="streaming_movies">
+            <option>No</option><option>Yes</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn" type="submit" id="btn">
+      Predict Churn
+    </button>
+  </form>
+
+  <div class="result" id="result">
+    <div class="result-icon"  id="r-icon"></div>
+    <div class="result-title" id="r-title"></div>
+    <div class="result-prob"  id="r-prob"></div>
+    <div class="meter-wrap">
+      <div class="meter-label">
+        <span>0% — Will Stay</span>
+        <span>100% — Will Churn</span>
+      </div>
+      <div class="meter">
+        <div class="meter-fill" id="r-bar"></div>
+      </div>
+    </div>
+    <span class="risk-badge" id="r-badge"></span>
+  </div>
+</div>
+
+<script>
+document.getElementById("form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn = document.getElementById("btn");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loader"></span>Predicting...';
+
+  try {
+    const res  = await fetch("/predict", { method: "POST", body: new FormData(e.target) });
+    const data = await res.json();
+    if (data.error) { alert("Error: " + data.error); return; }
+
+    const prob  = data.probability;
+    const churn = data.churn;
+    const el    = document.getElementById("result");
+
+    el.className = "result " + (churn ? "churn" : "no-churn");
+    el.style.display = "block";
+
+    document.getElementById("r-icon").textContent  = churn ? "⚠️" : "✅";
+    document.getElementById("r-title").textContent = churn ? "Customer Will Churn" : "Customer Will Stay";
+    document.getElementById("r-prob").textContent  = `Churn Probability: ${prob}%`;
+
+    const bar = document.getElementById("r-bar");
+    bar.style.width      = prob + "%";
+    bar.style.background = prob > 70 ? "#ef4444" : prob > 40 ? "#f59e0b" : "#22c55e";
+
+    const badge = document.getElementById("r-badge");
+    badge.textContent      = data.risk_level;
+    badge.style.background = prob > 70 ? "#450a0a" : prob > 40 ? "#451a03" : "#052e16";
+    badge.style.color      = prob > 70 ? "#ef4444" : prob > 40 ? "#f59e0b" : "#22c55e";
+
+    el.scrollIntoView({ behavior: "smooth" });
+  } catch(err) {
+    alert("Error: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "Predict Churn";
+  }
+});
+</script>
+</body>
+</html>
